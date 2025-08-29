@@ -1,0 +1,13 @@
+langchain
+langchain-core
+langchain-community
+langchain-ollama
+langchain-text-splitters
+langchain-chroma
+langchain-huggingface
+scipy
+pypdf
+sentence-transformers
+flask
+mysql-connector-python
+flask_bcrypt

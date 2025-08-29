@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PuaPal Chatbot</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+        }
+        #chat-container {
+            animation: fadeIn 1s ease-in-out;
+        }
+        @keyframes fadeIn {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        #typing-indicator {
+            display: none;
+            margin-bottom: 10px;
+        }
+        #typing-indicator span {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            background-color: #007bff;
+            border-radius: 50%;
+            margin-right: 4px;
+            animation: typing 1s infinite ease-in-out;
+        }
+        @keyframes typing {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        #quick-buttons button {
+            border-radius: 16px;
+            padding: 6px 14px;
+            font-size: 0.85rem;
+        }
+        #chat-history {
+            flex-grow: 1;
+            overflow-y: auto;
+            max-height: 100%;
+        }
+        #chat-section {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        #quick-buttons {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            z-index: 10;
+            background-color: #0d3b66;
+            border-radius: 12px;
+            padding: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            width: 100%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .sidebar-btn {
+            background-color: transparent;
+            color: #aaa;
+            border: none;
+            text-align: left;
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .sidebar-btn:hover {
+            background-color: #333;
+            color: white;
+        }
+        .sidebar-btn.active {
+            background-color: #d62828 !important;
+            color: white !important;
+        }
+        .content-section {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow-y: auto;
+            display: none;
+        }
+        .content-section.d-flex {
+            display: flex !important;
+            flex-direction: column;
+        }
+        #login-section {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            height: 100%;
+        }
+        .sidebar-radio {
+            color: #aaa;
+            border: none;
+            text-align: left;
+            padding: 10px 20px;
+            font-weight: 500;
+        }
+        .sidebar-form label {
+            font-size: 14px;
+            margin: 5px 0;
+            cursor: pointer;
+        }
+        .sidebar-form select {
+            background-color: #2a2a2a;
+            color: white;
+            border: 1px solid #444;
+        }
+        .sidebar-form select:disabled {
+            background-color: #444;
+            color: #999;
+            cursor: not-allowed;
+        }
+        .tooltip-wrapper { position: relative; display: inline-block; }
+        .info-trigger {
+            width: 18px; height: 18px; line-height: 18px;
+            display: inline-block; text-align: center; font-weight: 700; font-size: 12px;
+            border-radius: 50%; border: 1px solid rgba(255,255,255,.35);
+            color: #e6e6e6; background: rgba(255,255,255,.08);
+            cursor: help; margin-left: 6px;
+        }
+        .tooltip-box {
+            position: absolute; top: -6px; left: calc(100% + 10px);
+            width: 320px; z-index: 1000;
+            background: #2c2f36; color: #fff;
+            padding: 14px; border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,.3);
+            font-size: 13px;
+            opacity: 0; visibility: hidden; transform: translateY(4px);
+            transition: opacity .15s ease, transform .15s ease, visibility .15s;
+        }
+        .tooltip-box::before {
+            content: ""; position: absolute; top: 14px; left: -8px;
+            border-width: 8px 8px 8px 0; border-style: solid;
+            border-color: transparent #2c2f36 transparent transparent;
+        }
+        .tooltip-wrapper:hover .tooltip-box,
+        .tooltip-wrapper:focus-within .tooltip-box {
+            opacity: 1; visibility: visible; transform: translateY(0);
+        }
+        .tooltip-title { font-weight: 600; margin-bottom: 10px; }
+
+        .tooltip-box ul { list-style: none; margin: 0; padding: 0; }
+        .tooltip-box li { display: flex; align-items: flex-start; margin-bottom: 8px; }
+        .tooltip-label {
+            min-width: 110px; font-weight: 600; flex-shrink: 0;
+        }
+        .tooltip-desc {
+            flex: 1; line-height: 1.4;
+        }
+
+        /*Animations*/
+        @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        }
+        .user-message, .ai-message {
+            animation: fadeInUp 0.4s ease;
+        }
+        .typing {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .typing span {
+            height: 10px;
+            width: 10px;
+            background: #999; /* dot color */
+            border-radius: 50%;
+            display: inline-block;
+            animation: blink 1.5s infinite both;
+        }
+        .typing span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .typing span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes blink {
+            0% { opacity: 0.1; }
+            20% { opacity: 1; }
+            100% { opacity: 0.1; }
+        }
+    </style>
+
+</head>
+<body style="background-color: #121212; color: white;">
+    <div class="d-flex" style="height: 100vh;">
+        <!-- Sidebar -->
+        <div style="width: 250px; background-color: #1c1c1c; flex-shrink: 0;" class="d-flex flex-column justify-content-start align-items-center py-4">
+            <img src="{{ url_for('static', filename='CustomNavigationLogo.png') }}" alt="MMCM Logo" style="width: 120px; margin-bottom: 20px;">
+            <div class="w-100 nav flex-column" id="sidebar-nav">
+                <button class="nav-link text-left btn btn-block sidebar-btn active" data-target="faq-section">FAQ Chatbot</button>
+                <button class="nav-link text-left btn btn-block sidebar-btn" data-target="contact-section">Contact Agent</button>
+                <button class="nav-link text-left btn btn-block sidebar-btn" data-target="login-section">Login</button>
+
+            <form id="initialize-form" class="sidebar-form mb-3">
+                <div class="d-flex flex-column justify-content-start align-items-start mb-2 mt-3 ml-3">
+                    <small class="text-white-50">
+                        I am inquiring about:
+                        <!-- Tooltip -->
+                        <span class="tooltip-wrapper ms-1">
+                            <span class="info-trigger" tabindex="0" aria-describedby="guided-tooltip" role="button">?</span>
+                            <div id="guided-tooltip" class="tooltip-box" role="tooltip">
+                                <div class="tooltip-title">Guided Query</div>
+                                <p>You are now using Guided Query. This function helps PuaPal narrow down the documents it searches, improving accuracy.</p>
+                                <ul>
+                                    <li>
+                                        <span class="tooltip-label">General</span>
+                                        <span class="tooltip-desc">Searches all documents. Recommended if you’re unsure which category to choose, but responses may be inaccurate.</span>
+                                    </li>
+                                    <li>
+                                        <span class="tooltip-label">Admissions</span>
+                                        <span class="tooltip-desc">Searches only Admissions-related documents. Recommended for questions about enrollment, application requirements, or other admission processes.</span>
+                                    </li>
+                                    <li>
+                                        <span class="tooltip-label">Catalogue</span>
+                                        <span class="tooltip-desc">Searches only Program Catalogues. Recommended for questions about courses, learning outcomes, and specific classes offered.</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </span>
+                    </small>
+                    <!-- Guided Query -->
+                    <label class="d-block">
+                        <input type="radio" name="inquiry_type" value="general" checked> General
+                    </label>
+                    <label class="d-block">
+                        <input type="radio" name="inquiry_type" value="admissions"> Admissions
+                    </label>
+                    <label class="d-block">
+                        <input type="radio" name="inquiry_type" value="catalogue"> Program Catalogue
+                    </label>
+                </div>
+
+                <div id="program-select" class="form-group mb-2 w-75 ml-3" style="display:none">
+                    <small class="text-white-50">Select program:</small>
+                    <select name="program" id="program-select" class="form-control">
+                        <option value="">-- Select Program --</option>
+                        <option value="ATYCB">ATYCB</option>
+                        <option value="CAS">CAS</option>
+                        <option value="CCIS">CCIS</option>
+                        <option value="CEA">CEA</option>
+                        <option value="CHS">CHS</option>
+                        <option value="HS">HS</option>
+                    </select>
+                </div>
+            </form>
+            </div>
+        </div>
+
+        <!-- Switching Panels -->
+        <div class="flex-grow-1 position-relative" style="background-color: #1e1e1e; height: 100vh; overflow: hidden;">
+
+            <!-- FAQ Chatbot Section -->
+            <div id="faq-section" class="content-section d-flex flex-column" style="padding: 1.5rem;">
+                <h3 class="mb-3">PuaPal: The Mapúan Chatbot</h3>
+            <!-- Greeting -->
+                <div id="greeting-section" class="d-flex flex-column align-items-center justify-content-center text-center" style="min-height: 600px;">
+                    <p class="lead">I'm PuaPal, the MMCM chatbot! How can I help you today?</p>
+                    <div class="mb-4">
+                        <button type="button" class="btn btn-outline-light btn-sm m-1">Enrollment</button>
+                        <button type="button" class="btn btn-outline-light btn-sm m-1">Scholarships & Financial Aid</button>
+                        <button type="button" class="btn btn-outline-light btn-sm m-1">Generated Schedule and Assessment</button>
+                        <button type="button" class="btn btn-outline-light btn-sm m-1">Course Offerings</button>
+                        <button type="button" class="btn btn-outline-light btn-sm m-1">Payment Inquiry</button>
+                        <button type="button" class="btn btn-outline-light btn-sm m-1">MMCM Course Guide & Details</button>
+                    </div>
+                </div>
+
+                <!-- Chat Section -->
+                <div id="chat-section" class="d-flex flex-column justify-content-end flex-grow-1" style="display: none; height: 100%;">
+                    <div id="chat-history" class="flex-grow-1 overflow-auto mb-3"></div>
+                    <!-- Quick Menu Toggle and Buttons -->
+                    <div id="quick-menu-container" style="position: relative;">
+                        <div id="quick-buttons" class="d-none p-2" style="background-color: #0d3b66; border-radius: 12px; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;" class="d-flex">
+                            <button class="btn btn-primary btn-sm quick-btn m-1">Enrollment</button>
+                            <button class="btn btn-primary btn-sm quick-btn m-1">Scholarships & Financial Aid</button>
+                            <button class="btn btn-primary btn-sm quick-btn m-1">Generated Schedule and Assessment</button>
+                            <button class="btn btn-primary btn-sm quick-btn m-1">Library Services</button>
+                            <button class="btn btn-primary btn-sm quick-btn m-1">Late enrollment inquiry</button>
+                            <button class="btn btn-primary btn-sm quick-btn m-1">Course Offerings</button>
+                            <button class="btn btn-primary btn-sm quick-btn m-1">Payment Inquiry</button>
+                            <button class="btn btn-primary btn-sm quick-btn m-1">MMCM Course Guide & Details</button>
+                            <button class="btn btn-primary btn-sm quick-btn m-1">Shifting to other programs</button>
+                            <button class="btn btn-primary btn-sm quick-btn m-1">Account Billing</button>
+                        </div>
+
+                        <form id="chat-form">
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <div class="input-group-prepend">
+                                        <button type="button" id="toggle-quick-menu" class="btn btn-outline-light">
+                                            <i class="fas fa-bars"></i>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <input type="text" id="user-input" class="form-control bg-dark text-white border-secondary" placeholder="Ask about anything!" required>
+                                    <div class="input-group-append">
+                                        <button type="submit" class="btn btn-danger">Send</button>
+                                    </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <!--flash message for fail and success messages-->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div id="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }}">
+                        {{ message }}
+                        </div>
+                    {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+            <!-- Contact Agent Section -->
+             <div id="contact-section" class="content-section" style="display: none; padding: 1.5rem;">
+                <h3 class="mb-3">Get in Touch with an Agent</h3>
+
+                <form action="/contact" method="POST">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label>First Name:</label>
+                            <input class="form-control" type="text" name="first_name" placeholder="Your first name">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Last Name:</label>
+                            <input class="form-control" type="text" name="last_name" placeholder="Your last name">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label>Email:</label>
+                            <input class="form-control" type="email" name="email" placeholder="Your MMCM Email or available Email">
+                        </div>
+                        <div class="col-md-6">
+                            <label>Student Number</label>
+                            <input class="form-control" type="text" name="student_number" placeholder="Your student number">
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label>Contact Number</label>
+                            <input class="form-control" type="text" name="contact_number" placeholder="Your contact number">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="inquiry-nature">Nature of Inquiry</label>
+                            <select class="form-control" id="inquiry-nature" name="nature_of_inquiry">
+                                <option disabled selected>Choose one</option>
+                                <option value="Admissions">Admissions</option>
+                                <option value="Treasury">Treasury</option>
+                                <option value="Registrar">Registrar</option>
+                                <option value="Guidance">Guidance Office</option>
+                                <option value="IT">IT Support</option>
+                                <option value="Library">Library</option>
+                                <option value="Miscellaneous">Miscellaneous</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="grade-level">Grade Level</label>
+                            <select class="form-control" id="grade-level" name="grade_level">
+                                <option disabled selected>Choose one</option>
+                                <option value="jhs">Junior High School</option>
+                                <option value="shs">Senior High School</option>
+                                <option value="college">College Level</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="program">Program</label>
+                            <select class="form-control" id="program" name="program">
+                                <option disabled selected>Select a grade level first</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mt-2">
+                        <div class="col-md-12">
+                            <label for="message">Message:</label>
+                            <textarea id="message" class="form-control" name="message" rows="6" placeholder="Enter your inquiry" style="resize: none; padding: 1rem; min-height: 250px;"></textarea>
+                            <button type="submit" class="btn btn-danger mt-3 float-end">Send Message</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Login Section -->
+            <form action="/login" method="POST">
+                <div id="login-section" class="content-section" style="display: none; padding: 1.5rem;">
+                    <img src="{{ url_for('static', filename='CustomNavigationLogo3.png') }}" alt="MMCM Logo" style="max-width: 600px;" class="mb-4">
+
+                    <div style="width: 100%; max-width: 400px;">
+                        <div class="form-group text-start mb-3">
+                            <label for="login-username">Username</label>
+                            <input type="text" class="form-control" name="username" id="login-username" placeholder="Enter username">
+                        </div>
+
+                        <div class="form-group text-start mb-4">
+                            <label for="login-password">Password</label>
+                            <input type="password" class="form-control" name="password" id="login-password" placeholder="Enter password">
+                        </div>
+
+                        <button type="submit" class="btn btn-outline-light w-100 mb-3" style="border: 1px solid white;">Sign In</button>
+
+                        <small class="text-white-50 d-block">
+                            <strong>Note:</strong> This login portal is intended for authorized MMCM administrators only. <br>
+                            If you are a student, please use the chatbot on the main page for your inquiries.
+                        </small>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script>
+    $(document).ready(function () {
+    console.log("Script loaded");
+
+    // Hide greeting show chat
+    function showChatUI() {
+        console.log("Hiding greeting, showing chat");
+        $("#greeting-section").remove();
+        $("#chat-section").fadeIn(300).css("display", "flex");
+    }
+    // Add user message
+    function addUserMessage(userInput) {
+        $("#chat-history").append(`
+            <div class="text-right mb-2 user-message">
+                <div class="badge badge-danger p-2">You</div>
+                <div class="bg-secondary text-white rounded p-2 d-inline-block">${userInput}</div>
+            </div>
+        `);
+    }
+
+    let inquiryType = null;
+    let program = null;
+
+    const programContainer = document.getElementById('program-select'); 
+    const programSelectEl = programContainer.querySelector('select'); 
+
+    document.querySelectorAll('input[name="inquiry_type"]').forEach(radio => {
+    radio.addEventListener('change', function () {
+        inquiryType = this.value; // 'admissions' | 'general' | 'catalogue'
+
+        if (inquiryType === 'catalogue') { //if catalogue show dropdown
+            programContainer.style.display = 'block';
+            programSelectEl.disabled = false;
+        } else {
+        // Hide and fully clear any previous program selection
+            programContainer.style.display = 'none'; //hide dropdown menu
+            programSelectEl.disabled = true; //disable dropdown selection
+            programSelectEl.value = "";          // reset DOM value
+            programSelectEl.selectedIndex = 0;   // extra safety
+            program = null;                      // reset JS state
+        }
+    });
+    });
+
+    programSelectEl.addEventListener('change', function () {
+    program = this.value || null;
+    console.log("prorgram selected is:")
+    console.log(program)
+    });
+
+    // Optional: initialize proper state on first load
+    (function init() {
+    const checked = document.querySelector('input[name="inquiry_type"]:checked');
+    if (checked) checked.dispatchEvent(new Event('change'));
+    else {
+        // default to hidden/cleared
+        programContainer.style.display = 'none';
+        programSelectEl.disabled = true;
+        programSelectEl.value = "";
+        program = null;
+    }
+    })();
+
+    // Send message to server
+    function sendToServer(userInput) {
+        let inquiryTypeEl = document.querySelector('input[name="inquiry_type"]:checked');
+        let inquiryTypeVal = inquiryTypeEl ? inquiryTypeEl.value : null;
+
+        let programEl = document.getElementById('program-select').querySelector('select');
+        let programVal = programEl && !programEl.disabled ? programEl.value : null;
+
+        // Animation typing indicator
+        let typingId = Date.now();
+        $("#chat-history").append(`
+            <div class="text-left mb-2 typing-indicator-container" id="typing-${typingId}">
+                <div class="badge badge-light text-dark p-2">AI</div>
+                <div class="bg-dark text-white rounded p-2 d-inline-block">
+                <div class="typing">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        `);
+        $("#chat-history").scrollTop($("#chat-history")[0].scrollHeight);
+
+        $.ajax({
+            url: "/chat",
+            type: "POST",
+            contentType: "application/json",  
+            data: JSON.stringify({ 
+                message: userInput, 
+                inquiryType: inquiryTypeVal,
+                program: programVal
+            }),  
+            success: function (response) {
+                $(`#typing-${typingId}`).replaceWith(`
+                    <div class="text-left mb-2 ai-message">
+                        <div class="badge badge-light text-dark p-2">AI</div>
+                        <div class="bg-dark text-white rounded p-2 d-inline-block">${response.response}</div>
+                    </div>
+                `);
+                $("#chat-history").scrollTop($("#chat-history")[0].scrollHeight);
+                },
+                error: function () {
+                    $(`#typing-${typingId}`).remove();
+                    alert("Error processing your request.");
+                }
+            });
+        }
+
+    // Form submit
+    $("#chat-form").submit(function (event) {
+        console.log("Form submission triggered.");
+        event.preventDefault();
+
+        let userInput = $("#user-input").val().trim();
+
+        if (!userInput) {
+            console.log("Empty input - submission prevented.");
+            return false;
+        }
+
+        showChatUI();
+        addUserMessage(userInput);
+        sendToServer(userInput);
+        $("#user-input").val("");
+    });
+
+    // Toggle quick menu
+    $("#toggle-quick-menu").click(function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log("Toggle menu clicked");
+        $("#quick-buttons").toggleClass("d-none");
+    });
+
+    // Greeting quick buttons (outside chat section)
+    $("#greeting-section .btn-outline-light").click(function () {
+        const userInput = $(this).text().trim();
+        showChatUI();
+        addUserMessage(userInput);
+        sendToServer(userInput);
+    });
+
+    // Inside quick-menu buttons
+    $(".quick-btn").click(function () {
+        const quickText = $(this).text().trim();
+        if (!quickText) return;
+            $("#user-input").val(quickText);
+            $("#chat-form").submit(); // This is OK now
+            $("#quick-buttons").addClass("d-none");
+    });
+    });
+
+    //switching panels
+    $(document).ready(function () {
+        $(".sidebar-btn").click(function () {
+            // deactivate all buttons
+            $(".sidebar-btn").removeClass("active").css("background-color", "").css("color", "");
+
+            // highlight clicked button
+            $(this).addClass("active").css("background-color", "#d62828").css("color", "white");
+
+            // hide all sections
+            $(".content-section").removeClass("d-flex").hide();
+
+            // show target
+            const target = $(this).data("target");
+            $("#" + target).addClass("d-flex").show(); // d-flex to maintain layout
+        });
+    });
+
+    //dynamic dropdown menu
+    $(document).ready(function () {
+    const programOptions = {
+        shs: [
+            { value: "abm", text: "Accountancy, Business, and Management (ABM)" },
+            { value: "humms", text: "Humanities and Social Sciences (HUMSS)" },
+            { value: "stem", text: "Science, Technology, Engineering, and Mathematics (STEM)" },
+            { value: "ad", text: "Arts and Design (AD)" },
+            { value: "ict", text: "Information and Communication Technology (ICT)" }
+        ],
+        college: [
+            { value: "atycb", text: "Alfonso T. Yuchengco College of Business (ATYCB)" },
+            { value: "cas", text: "College of Arts and Science (CAS)" },
+            { value: "ccis", text: "College of Computer and Information Science (CCIS)" },
+            { value: "cea", text: "College of Engineering and Architecture (CEA)" },
+            { value: "chs", text: "College of Health Sciences (CHS)" }
+        ],
+        jhs: [
+            { value: "jhs", text: "General JHS Curriculum" }
+        ]
+    };
+
+    $("#grade-level").on("change", function () {
+        const level = $(this).val();
+        const programs = programOptions[level] || [];
+
+        // Clear current options
+        $("#program").empty();
+
+        if (programs.length > 0) {
+            $("#program").append(`<option disabled selected>Choose a program</option>`);
+            programs.forEach(p => {
+                $("#program").append(`<option value="${p.value}">${p.text}</option>`);
+            });
+        } else {
+            $("#program").append(`<option disabled selected>No programs available</option>`);
+        }
+    });
+    });
+
+    //timeout for flash messages
+    setTimeout(() => {
+    const alerts = document.querySelectorAll(".alert");
+    alerts.forEach(alert => {
+        alert.style.transition = "opacity 0.5s ease";
+        alert.style.opacity = "0";
+        setTimeout(() => alert.remove(), 500); 
+    });
+    }, 3000);
+    </script>
+
+</body>
+</html>

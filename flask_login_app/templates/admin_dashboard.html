@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar {
+            width: 250px;
+            background-color: #121212;
+            color: white;
+            padding: 20px;
+        }
+        .sidebar a {
+            color: white;
+            text-decoration: none;
+            display: block;
+            padding: 10px 0;
+            border-radius: 6px;
+            transition: background-color 0.2s ease;
+        }
+        .sidebar a.active {
+            background-color: #d62828;
+        }
+        .sidebar a:hover {
+            background-color: #d62828;
+        }
+        .sidebar:has(a.logout:hover) a.active {
+            background-color: transparent;
+        }
+        .content {
+            flex: 1;
+            padding: 30px;
+            background-color: #f8f9fa;
+            overflow-x: auto;
+        }
+        .table thead {
+            background-color: #343a40;
+            color: white;
+        }
+        .sidebar img {
+            display: block;
+            margin: 0 auto 20px; /* Ensures the logo is centered */
+        }
+    </style>
+</head>
+<body>
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                
+                {% if category == 'info' and message is mapping %}
+                    <!-- View Message pop up -->
+                    <div id="flash-overlay" class="d-flex justify-content-center align-items-center position-fixed top-0 start-0 w-100 h-100" style="background: rgba(0,0,0,0.5); z-index: 2000;">
+                        <div class="flash-card bg-white rounded-4 shadow-lg p-4" style="width: 75%; max-width: 1000px; max-height: 80vh; overflow-y: auto;">
+                            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                                <h5 class="mb-0 fw-bold text-primary">Message Details</h5>
+                                <button type="button" class="btn-close" onclick="document.getElementById('flash-overlay').remove()" aria-label="Close"></button>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <p><strong>Name:</strong> {{ message.first_name }} {{ message.last_name }}</p>
+                                    <p><strong>Email:</strong> {{ message.email }}</p>
+                                    <p><strong>Student Number:</strong> {{ message.student_number }}</p>
+                                    <p><strong>Date Sent:</strong> {{ message.date_sent }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Contact:</strong> {{ message.contact_number }}</p>
+                                    <p><strong>Grade Level:</strong> {{ message.grade_level }}</p>
+                                    <p><strong>Program:</strong> {{ message.program }}</p>
+                                </div>
+                            </div>
+                            <div class="border rounded p-3 bg-light">
+                                <p class="mb-0" style="white-space: pre-wrap;">{{ message.message }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                {% else %}
+                    <!-- Normal alerts for success/error -->
+                    <div class="position-fixed top-0 start-50 translate-middle-x mt-3" style="z-index: 2000; width: 50%; max-width: 600px;">
+                        <div class="alert alert-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'info' }} alert-dismissible fade show shadow-lg text-center" role="alert">
+                            {{ message if message is string else message.error }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    </div>
+                {% endif %}
+            
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <img src="{{ url_for('static', filename='CustomNavigationLogo.png') }}" alt="MMCM Logo" style="width: 120px; margin-bottom: 20px;">
+        <a href="#" class="active">Dashboard</a>
+        <a href="/logout" class="logout">Logout</a>
+    </div>
+
+    <!-- Content -->
+    <div class="content">
+        <h1 class="mb-4">Admin Dashboard</h1>
+
+        <!-- New CRUD function -->
+        <div class="d-flex mb-3">
+            <form id="filter-form" class="d-flex me-2" method="GET" action="{{ url_for('admin_dashboard') }}">
+                <!-- Search bar -->
+                <input type="text" 
+                    class="form-control me-2" 
+                    name="search" 
+                    placeholder="Search inquiries"
+                    value="{{ request.args.get('search', '') }}"
+                    onkeypress="if(event.key === 'Enter'){ this.form.submit(); }">
+
+                <!-- Nature of Inquiry filter -->
+                <select class="form-select me-2" name="nature_of_inquiry" onchange="this.form.submit()">
+                    <option value="">All Inquiries</option>
+                    <option value="Admissions" {% if request.args.get('nature_of_inquiry')=='Admissions' %}selected{% endif %}>Admissions</option>
+                    <option value="Treasury" {% if request.args.get('nature_of_inquiry')=='Treasury' %}selected{% endif %}>Treasury</option>
+                    <option value="Registrar" {% if request.args.get('nature_of_inquiry')=='Registrar' %}selected{% endif %}>Registrar</option>
+                    <option value="Guidance Office" {% if request.args.get('nature_of_inquiry')=='Guidance Office' %}selected{% endif %}>Guidance Office</option>
+                    <option value="IT Support" {% if request.args.get('nature_of_inquiry')=='IT Support' %}selected{% endif %}>IT Support</option>
+                    <option value="Library" {% if request.args.get('nature_of_inquiry')=='Library' %}selected{% endif %}>Library</option>
+                    <option value="Miscellaneous" {% if request.args.get('nature_of_inquiry')=='Miscellaneous' %}selected{% endif %}>Miscellaneous</option>
+                </select>
+
+                <!-- Grade Level filter -->
+                <select class="form-select me-2" name="grade_level" onchange="this.form.submit()">
+                    <option value="">All Grade Levels</option>
+                    <option value="jhs" {% if request.args.get('grade_level')=='jhs' %}selected{% endif %}>Junior High School</option>
+                    <option value="shs" {% if request.args.get('grade_level')=='shs' %}selected{% endif %}>Senior High School</option>
+                    <option value="college" {% if request.args.get('grade_level')=='college' %}selected{% endif %}>College</option>
+                </select>
+
+                <!-- Program filter -->
+                <select class="form-select me-2" name="program" onchange="this.form.submit()">
+                    <option value="">All Programs</option>
+                    <option value="jhs" {% if request.args.get('program')=='jhs' %}selected{% endif %}>JHS</option>
+                    <option value="abm" {% if request.args.get('program')=='abm' %}selected{% endif %}>ABM</option>
+                    <option value="humms" {% if request.args.get('program')=='humms' %}selected{% endif %}>HUMMS</option>
+                    <option value="stem" {% if request.args.get('program')=='stem' %}selected{% endif %}>STEM</option>
+                    <option value="ad" {% if request.args.get('program')=='ad' %}selected{% endif %}>AD</option>
+                    <option value="ict" {% if request.args.get('program')=='ict' %}selected{% endif %}>ICT</option>
+                    <option value="atycb" {% if request.args.get('program')=='atycb' %}selected{% endif %}>ATYCB</option>
+                    <option value="cas" {% if request.args.get('program')=='cas' %}selected{% endif %}>CAS</option>
+                    <option value="ccis" {% if request.args.get('program')=='ccis' %}selected{% endif %}>CCIS</option>
+                    <option value="cea" {% if request.args.get('program')=='cea' %}selected{% endif %}>CEA</option>
+                    <option value="chs" {% if request.args.get('program')=='chs' %}selected{% endif %}>CHS</option>
+                </select>
+
+                <!-- Sort filter -->
+                <select class="form-select me-2" name="sort" onchange="this.form.submit()">
+                    <option value="desc" {% if request.args.get('sort','desc')=='desc' %}selected{% endif %}>Newest First</option>
+                    <option value="asc" {% if request.args.get('sort')=='asc' %}selected{% endif %}>Oldest First</option>
+                </select>
+
+                <!-- Reset button (clears filters) -->
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Reset</a>
+            </form>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-bordered align-middle">
+                <thead>
+                    <tr>
+                        <th>First Name</th>
+                        <th>Last Name</th>
+                        <th>Email</th>
+                        <th>Student Number</th>
+                        <th>Contact Number</th>
+                        <th>Nature of Inquiry</th>
+                        <th>Grade Level</th>
+                        <th>Program</th>
+                        <th>Message</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in inquiries %}
+                    <tr>
+                        <td>{{ row.first_name }}</td>
+                        <td>{{ row.last_name }}</td>
+                        <td>{{ row.email }}</td>
+                        <td>{{ row.student_number }}</td>
+                        <td>{{ row.contact_number }}</td>
+                        <td>{{ row.nature_of_inquiry }}</td>
+                        <td>{{ row.grade_level }}</td>
+                        <td>{{ row.program }}</td>
+                        <td>
+                            <form method="POST" action="{{ url_for('view_message', id=row.id) }}" class="d-inline">
+                                <!-- Preserve filters -->
+                                <input type="hidden" name="search" value="{{ request.args.get('search', '') }}">
+                                <input type="hidden" name="nature_of_inquiry" value="{{ request.args.get('nature_of_inquiry', '') }}">
+                                <input type="hidden" name="grade_level" value="{{ request.args.get('grade_level', '') }}">
+                                <input type="hidden" name="program" value="{{ request.args.get('program', '') }}">
+                                <input type="hidden" name="sort" value="{{ request.args.get('sort', 'desc') }}">
+
+                                <button type="submit" class="btn btn-primary btn-sm">View</button>
+                            </form>
+                        </td>
+                        <td>
+                            <form method="POST" action="{{ url_for('delete_inquiry', id=row.id) }}" class="d-inline">
+                                <!-- Preserve filters -->
+                                <input type="hidden" name="search" value="{{ request.args.get('search', '') }}">
+                                <input type="hidden" name="nature_of_inquiry" value="{{ request.args.get('nature_of_inquiry', '') }}">
+                                <input type="hidden" name="grade_level" value="{{ request.args.get('grade_level', '') }}">
+                                <input type="hidden" name="program" value="{{ request.args.get('program', '') }}">
+                                <input type="hidden" name="sort" value="{{ request.args.get('sort', 'desc') }}">
+                                
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    //make sidebar option red when hover
+    (function() {
+        if (!CSS.supports('selector(:has(a))')) {
+            const sidebar = document.querySelector('.sidebar');
+            const dash = sidebar?.querySelector('a.active');
+            const logout = sidebar?.querySelector('a.logout');
+            if (dash && logout) {
+            logout.addEventListener('mouseenter', () => {
+                dash.classList.remove('active');
+                logout.classList.add('active');
+            });
+            logout.addEventListener('mouseleave', () => {
+                logout.classList.remove('active');
+                dash.classList.add('active');
+            });
+            }
+        }
+    })();
+    </script>
+</body>
+</html>
